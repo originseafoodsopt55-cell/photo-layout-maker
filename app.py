@@ -6,7 +6,6 @@ st.set_page_config(page_title="Photo Layout Maker", page_icon="🖼️", layout=
 st.title("🖼️ Photo Layout Maker")
 st.caption("อัปโหลดภาพ 1–6 ภาพ แล้วเลือก Layout เพื่อรวมเป็นภาพเดียว")
 
-# ------------------- Helpers -------------------
 def hex_to_rgb(h):
     h = h.lstrip("#")
     return tuple(int(h[i:i+2], 16) for i in (0, 2, 4))
@@ -19,9 +18,6 @@ def crop_fit(img, w, h):
     left = (nw - w) // 2
     top = (nh - h) // 2
     return img2.crop((left, top, left + w, top + h))
-
-def make_canvas(W, H, bg):
-    return Image.new("RGB", (W, H), bg)
 
 def place(canvas, img, x, y, w, h):
     x, y, w, h = int(x), int(y), int(w), int(h)
@@ -113,7 +109,7 @@ def get_rects(layout, W, g, n):
     return rects, H
 
 def draw_layout_preview(layout, g=4, n=6):
-    PW = 320
+    PW = 220
     rects_raw, H_raw = get_rects(layout, 400, g, n)
     scale = PW / 400
     PH = int(H_raw * scale)
@@ -129,7 +125,7 @@ def draw_layout_preview(layout, g=4, n=6):
         draw.text((x+w//2-5, y+h//2-8), str(i+1), fill=(255,255,255))
     return img
 
-# ------------------- Session State -------------------
+# Session state
 if "order" not in st.session_state:
     st.session_state.order = list(range(6))
 
@@ -146,27 +142,17 @@ with st.sidebar:
         "Mosaic",
         "แถบแนวนอน",
     ])
+
+    # Preview in sidebar (small)
+    prev_img = draw_layout_preview(layout, g=4, n=6)
+    st.image(prev_img, caption="ตัวอย่าง Layout", use_container_width=True)
+
+    st.divider()
     gap = st.slider("ช่องว่างระหว่างภาพ (px)", 0, 40, 8, step=2)
     bg_color_hex = st.color_picker("สีพื้นหลัง", "#ffffff")
     out_width = st.selectbox("ความกว้างเอาต์พุต", [1080, 1200, 1800, 2400], index=1)
     quality = st.slider("คุณภาพ JPEG", 70, 100, 92, step=1)
     out_format = st.radio("รูปแบบไฟล์", ["JPG", "PNG"], horizontal=True)
-
-# ------------------- Layout Preview -------------------
-st.subheader("📐 ตัวอย่าง Layout")
-col_prev, col_info = st.columns([1, 2])
-with col_prev:
-    prev_img = draw_layout_preview(layout, g=gap, n=6)
-    st.image(prev_img, caption=layout, width=200)
-with col_info:
-    st.markdown("""
-**ตัวเลขในช่อง = ลำดับภาพที่จะวาง**
-
-- อัปโหลดภาพตามลำดับที่ต้องการ
-- กดปุ่ม **← →** ด้านล่างแต่ละภาพเพื่อสลับตำแหน่ง
-    """)
-
-st.divider()
 
 # ------------------- Upload -------------------
 st.subheader("📤 อัปโหลดภาพ")
@@ -183,45 +169,39 @@ if not uploaded:
 imgs_raw = [Image.open(f).convert("RGB") for f in uploaded[:6]]
 n = len(imgs_raw)
 
-# adjust order list to match n
 if len(st.session_state.order) != n:
     st.session_state.order = list(range(n))
 
 st.success(f"โหลดแล้ว {n} ภาพ")
 
-# ------------------- Reorder with Buttons -------------------
+# ------------------- Reorder -------------------
 st.subheader("🔀 เรียงลำดับภาพ")
-st.caption("กดปุ่ม ← → เพื่อสลับตำแหน่งภาพ")
+st.caption("กดปุ่ม ← → เพื่อสลับตำแหน่ง")
 
 order = st.session_state.order
-
-# Show thumbnails with swap buttons
 cols = st.columns(n)
 for i, col in enumerate(cols):
     idx = order[i]
     with col:
         st.image(imgs_raw[idx], caption=f"ช่องที่ {i+1}", use_container_width=True)
-        btn_cols = st.columns(2)
-        with btn_cols[0]:
-            if i > 0:
-                if st.button("←", key=f"left_{i}", use_container_width=True):
-                    order[i], order[i-1] = order[i-1], order[i]
-                    st.session_state.order = order
-                    st.rerun()
-        with btn_cols[1]:
-            if i < n - 1:
-                if st.button("→", key=f"right_{i}", use_container_width=True):
-                    order[i], order[i+1] = order[i+1], order[i]
-                    st.session_state.order = order
-                    st.rerun()
+        b1, b2 = st.columns(2)
+        with b1:
+            if i > 0 and st.button("←", key=f"l{i}", use_container_width=True):
+                order[i], order[i-1] = order[i-1], order[i]
+                st.session_state.order = order
+                st.rerun()
+        with b2:
+            if i < n-1 and st.button("→", key=f"r{i}", use_container_width=True):
+                order[i], order[i+1] = order[i+1], order[i]
+                st.session_state.order = order
+                st.rerun()
 
 # ------------------- Render -------------------
 W = out_width
 g = gap
 bg = hex_to_rgb(bg_color_hex)
 rects, H = get_rects(layout, W, g, n)
-
-canvas = make_canvas(W, H, bg)
+canvas = Image.new("RGB", (W, H), bg)
 for i, r in enumerate(rects[:n]):
     place(canvas, imgs_raw[order[i]], *r)
 
