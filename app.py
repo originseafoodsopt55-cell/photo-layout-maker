@@ -129,7 +129,6 @@ def draw_layout_preview(layout, g=4, n=6):
 if "order" not in st.session_state:
     st.session_state.order = list(range(6))
 
-# เพิ่ม uploader_key เพื่อเอาไว้รีเซ็ต file_uploader
 if "uploader_key" not in st.session_state:
     st.session_state.uploader_key = 0
 
@@ -147,7 +146,6 @@ with st.sidebar:
         "แถบแนวนอน",
     ])
 
-    # Preview in sidebar (small)
     prev_img = draw_layout_preview(layout, g=4, n=6)
     st.image(prev_img, caption="ตัวอย่าง Layout", use_container_width=True)
 
@@ -164,7 +162,7 @@ uploaded = st.file_uploader(
     "เลือกภาพ (สูงสุด 6 ภาพ)",
     type=["jpg","jpeg","png","webp"],
     accept_multiple_files=True,
-    key=f"uploader_{st.session_state.uploader_key}" # ผูก key ไว้กับ session state
+    key=f"uploader_{st.session_state.uploader_key}"
 )
 
 if not uploaded:
@@ -177,15 +175,8 @@ n = len(imgs_raw)
 if len(st.session_state.order) != n:
     st.session_state.order = list(range(n))
 
-# วางปุ่มล้างภาพคู่กับข้อความ success เพื่อความสวยงามของ UI
-col1, col2 = st.columns([4, 1])
-with col1:
-    st.success(f"โหลดแล้ว {n} ภาพ")
-with col2:
-    if st.button("🗑️ ล้างภาพ", use_container_width=True):
-        st.session_state.uploader_key += 1       # เปลี่ยน key เพื่อเคลียร์ไฟล์ใน uploader
-        st.session_state.order = list(range(6))  # รีเซ็ตลำดับ
-        st.rerun()
+# เอาปุ่มล้างภาพตรงนี้ออก แล้วเหลือแค่การแจ้งเตือน
+st.success(f"โหลดแล้ว {n} ภาพ")
 
 # ------------------- Reorder -------------------
 st.subheader("🔀 เรียงลำดับภาพ")
@@ -223,16 +214,34 @@ st.divider()
 st.subheader("🖼️ ภาพผลลัพธ์")
 st.image(canvas, use_container_width=True)
 
+# เตรียมไฟล์สำหรับดาวน์โหลด
 buf = io.BytesIO()
 if out_format == "PNG":
     canvas.save(buf, format="PNG")
-    buf.seek(0)
-    st.download_button("⬇️ ดาวน์โหลดภาพ (PNG)", data=buf,
-        file_name="photo-layout.png", mime="image/png", use_container_width=True)
+    mime_type = "image/png"
+    file_ext = "png"
 else:
     canvas.save(buf, format="JPEG", quality=quality)
-    buf.seek(0)
-    st.download_button("⬇️ ดาวน์โหลดภาพ (JPG)", data=buf,
-        file_name="photo-layout.jpg", mime="image/jpeg", use_container_width=True)
+    mime_type = "image/jpeg"
+    file_ext = "jpg"
+buf.seek(0)
+
+# วางปุ่มดาวน์โหลด และ ปุ่มล้างภาพ ไว้คู่กันด้านล่าง
+dl_col, clear_col = st.columns([3, 1])
+
+with dl_col:
+    st.download_button(
+        f"⬇️ ดาวน์โหลดภาพ ({out_format})", 
+        data=buf,
+        file_name=f"photo-layout.{file_ext}", 
+        mime=mime_type, 
+        use_container_width=True
+    )
+
+with clear_col:
+    if st.button("🗑️ ล้างภาพเริ่มใหม่", use_container_width=True):
+        st.session_state.uploader_key += 1
+        st.session_state.order = list(range(6))
+        st.rerun()
 
 st.caption(f"ขนาด: {W}×{H}px · {n} ภาพ · {layout} · {out_format}")
