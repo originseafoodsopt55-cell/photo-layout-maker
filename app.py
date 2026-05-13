@@ -3,7 +3,6 @@ from PIL import Image, ImageDraw
 import io
 
 st.set_page_config(page_title="Photo Layout Maker", page_icon="🖼️", layout="wide")
-
 st.title("🖼️ Photo Layout Maker")
 st.caption("อัปโหลดภาพ 1–6 ภาพ แล้วเลือก Layout เพื่อรวมเป็นภาพเดียว")
 
@@ -12,25 +11,23 @@ def hex_to_rgb(h):
     h = h.lstrip("#")
     return tuple(int(h[i:i+2], 16) for i in (0, 2, 4))
 
-def crop_fit(img, w, h, offset_x=0.5, offset_y=0.5):
+def crop_fit(img, w, h):
     iw, ih = img.size
     scale = max(w / iw, h / ih)
     nw, nh = int(iw * scale), int(ih * scale)
     img2 = img.resize((nw, nh), Image.LANCZOS)
-    max_left = max(nw - w, 0)
-    max_top = max(nh - h, 0)
-    left = int(max_left * offset_x)
-    top = int(max_top * offset_y)
+    left = (nw - w) // 2
+    top = (nh - h) // 2
     return img2.crop((left, top, left + w, top + h))
 
 def make_canvas(W, H, bg):
     return Image.new("RGB", (W, H), bg)
 
-def place(canvas, img, x, y, w, h, ox=0.5, oy=0.5):
+def place(canvas, img, x, y, w, h):
     x, y, w, h = int(x), int(y), int(w), int(h)
     if w <= 0 or h <= 0:
         return
-    piece = crop_fit(img, w, h, ox, oy)
+    piece = crop_fit(img, w, h)
     canvas.paste(piece, (x, y))
 
 def get_rects(layout, W, g, n):
@@ -63,32 +60,32 @@ def get_rects(layout, W, g, n):
             (g*2+hw, g*3+r1h+midh, hw, midh),
             (g, g*4+r1h+midh*2, fw, r1h),
         ]
-    elif layout.startswith("2x3") or layout.startswith("2×3"):
+    elif layout.startswith("2×3"):
         H = int(W * 1.5)
         cols2, rows2 = 2, 3
-        tw = (W - g * (cols2+1)) / cols2
-        th = (H - g * (rows2+1)) / rows2
+        tw = (W - g*(cols2+1)) / cols2
+        th = (H - g*(rows2+1)) / rows2
         for i in range(min(n, 6)):
             rects.append((g+(i%cols2)*(tw+g), g+(i//cols2)*(th+g), tw, th))
-    elif layout.startswith("3x2") or layout.startswith("3×2"):
+    elif layout.startswith("3×2"):
         H = int(W * 0.7)
         cols2, rows2 = 3, 2
-        tw = (W - g * (cols2+1)) / cols2
-        th = (H - g * (rows2+1)) / rows2
+        tw = (W - g*(cols2+1)) / cols2
+        th = (H - g*(rows2+1)) / rows2
         for i in range(min(n, 6)):
             rects.append((g+(i%cols2)*(tw+g), g+(i//cols2)*(th+g), tw, th))
     elif layout.startswith("ภาพใหญ่"):
         H = int(W * 0.75)
-        bw = W * 0.58 - g * 1.5
-        sw = W * 0.42 - g * 1.5
-        sh = (H - g * n) / max(n-1, 1)
-        rects.append((g, g, bw, H - g*2))
+        bw = W*0.58 - g*1.5
+        sw = W*0.42 - g*1.5
+        sh = (H - g*n) / max(n-1, 1)
+        rects.append((g, g, bw, H-g*2))
         for i in range(1, n):
             rects.append((g*2+bw, g+(i-1)*(sh+g), sw, sh))
     elif layout.startswith("2 ใหญ่"):
         H = W
-        bh = H * 0.52 - g
-        sh = H * 0.48 - g * 2
+        bh = H*0.52 - g
+        sh = H*0.48 - g*2
         bw = (W - g*3) / 2
         sw = (W - g*5) / 4
         rects.append((g, g, bw, bh))
@@ -97,9 +94,9 @@ def get_rects(layout, W, g, n):
             rects.append((g+(i-2)*(sw+g), g*2+bh, sw, sh))
     elif layout.startswith("Mosaic"):
         H = int(W * 0.75)
-        hw2 = W * 0.55 - g * 1.5
+        hw2 = W*0.55 - g*1.5
         hh = (H - g*3) / 2
-        sw2 = (W * 0.45 - g) / 2
+        sw2 = (W*0.45 - g) / 2
         rects = [
             (g, g, hw2, hh),
             (hw2+g*2, g, sw2, hh),
@@ -116,7 +113,7 @@ def get_rects(layout, W, g, n):
     return rects, H
 
 def draw_layout_preview(layout, g=4, n=6):
-    PW, PH_max = 360, 600
+    PW = 320
     rects_raw, H_raw = get_rects(layout, 400, g, n)
     scale = PW / 400
     PH = int(H_raw * scale)
@@ -127,11 +124,14 @@ def draw_layout_preview(layout, g=4, n=6):
         (111,99,200),(143,131,218),(79,71,167),
     ]
     for i, r in enumerate(rects_raw[:n]):
-        x, y, w, h = [int(v * scale) for v in r]
-        draw.rectangle([x, y, x+w-1, y+h-1], fill=colors[i % len(colors)], outline=(20,18,35), width=2)
-        cx, cy = x + w//2 - 5, y + h//2 - 8
-        draw.text((cx, cy), str(i+1), fill=(255,255,255))
+        x, y, w, h = [int(v*scale) for v in r]
+        draw.rectangle([x, y, x+w-1, y+h-1], fill=colors[i%len(colors)], outline=(20,18,35), width=2)
+        draw.text((x+w//2-5, y+h//2-8), str(i+1), fill=(255,255,255))
     return img
+
+# ------------------- Session State -------------------
+if "order" not in st.session_state:
+    st.session_state.order = list(range(6))
 
 # ------------------- Sidebar -------------------
 with st.sidebar:
@@ -157,14 +157,13 @@ st.subheader("📐 ตัวอย่าง Layout")
 col_prev, col_info = st.columns([1, 2])
 with col_prev:
     prev_img = draw_layout_preview(layout, g=gap, n=6)
-    st.image(prev_img, caption=layout, use_container_width=False, width=200)
+    st.image(prev_img, caption=layout, width=200)
 with col_info:
     st.markdown("""
 **ตัวเลขในช่อง = ลำดับภาพที่จะวาง**
 
 - อัปโหลดภาพตามลำดับที่ต้องการ
-- ปรับ slider ↔ ↕ เพื่อเลื่อนตำแหน่งภาพในกรอบ
-- 0% = ซ้าย/บนสุด · 100% = ขวา/ล่างสุด · 50% = กลาง
+- กดปุ่ม **← →** ด้านล่างแต่ละภาพเพื่อสลับตำแหน่ง
     """)
 
 st.divider()
@@ -173,7 +172,7 @@ st.divider()
 st.subheader("📤 อัปโหลดภาพ")
 uploaded = st.file_uploader(
     "เลือกภาพ (สูงสุด 6 ภาพ)",
-    type=["jpg", "jpeg", "png", "webp"],
+    type=["jpg","jpeg","png","webp"],
     accept_multiple_files=True,
 )
 
@@ -183,24 +182,38 @@ if not uploaded:
 
 imgs_raw = [Image.open(f).convert("RGB") for f in uploaded[:6]]
 n = len(imgs_raw)
+
+# adjust order list to match n
+if len(st.session_state.order) != n:
+    st.session_state.order = list(range(n))
+
 st.success(f"โหลดแล้ว {n} ภาพ")
 
-# ------------------- Thumbnails -------------------
-thumb_cols = st.columns(n)
-for i, (col, img) in enumerate(zip(thumb_cols, imgs_raw)):
-    with col:
-        st.image(img, caption=f"ภาพ {i+1}", use_container_width=True)
+# ------------------- Reorder with Buttons -------------------
+st.subheader("🔀 เรียงลำดับภาพ")
+st.caption("กดปุ่ม ← → เพื่อสลับตำแหน่งภาพ")
 
-# ------------------- Position Controls -------------------
-st.subheader("🎛️ ปรับตำแหน่งภาพในช่อง")
-offsets = []
-ctrl_cols = st.columns(n)
-for i, col in enumerate(ctrl_cols):
+order = st.session_state.order
+
+# Show thumbnails with swap buttons
+cols = st.columns(n)
+for i, col in enumerate(cols):
+    idx = order[i]
     with col:
-        st.markdown(f"**ภาพ {i+1}**")
-        ox = st.slider("↔ แนวนอน", 0, 100, 50, step=5, key=f"ox_{i}") / 100
-        oy = st.slider("↕ แนวตั้ง", 0, 100, 50, step=5, key=f"oy_{i}") / 100
-        offsets.append((ox, oy))
+        st.image(imgs_raw[idx], caption=f"ช่องที่ {i+1}", use_container_width=True)
+        btn_cols = st.columns(2)
+        with btn_cols[0]:
+            if i > 0:
+                if st.button("←", key=f"left_{i}", use_container_width=True):
+                    order[i], order[i-1] = order[i-1], order[i]
+                    st.session_state.order = order
+                    st.rerun()
+        with btn_cols[1]:
+            if i < n - 1:
+                if st.button("→", key=f"right_{i}", use_container_width=True):
+                    order[i], order[i+1] = order[i+1], order[i]
+                    st.session_state.order = order
+                    st.rerun()
 
 # ------------------- Render -------------------
 W = out_width
@@ -210,8 +223,7 @@ rects, H = get_rects(layout, W, g, n)
 
 canvas = make_canvas(W, H, bg)
 for i, r in enumerate(rects[:n]):
-    ox, oy = offsets[i]
-    place(canvas, imgs_raw[i], *r, ox, oy)
+    place(canvas, imgs_raw[order[i]], *r)
 
 # ------------------- Result -------------------
 st.divider()
