@@ -25,6 +25,7 @@ with st.sidebar:
     bg_color_hex = st.color_picker("สีพื้นหลัง", "#ffffff")
     out_width = st.selectbox("ความกว้างเอาต์พุต", [1080, 1200, 1800, 2400], index=1)
     quality = st.slider("คุณภาพ JPEG", 70, 100, 92, step=1)
+    out_format = st.radio("รูปแบบไฟล์", ["JPG", "PNG"], horizontal=True)
 
 # --- Upload ---
 uploaded = st.file_uploader(
@@ -181,15 +182,25 @@ st.image(canvas, use_container_width=True)
 
 # --- Download ---
 buf = io.BytesIO()
-canvas.save(buf, format="JPEG", quality=quality)
-buf.seek(0)
+if out_format == "PNG":
+    canvas.save(buf, format="PNG")
+    buf.seek(0)
+    st.download_button(
+        label="⬇️ ดาวน์โหลดภาพ (PNG)",
+        data=buf,
+        file_name="photo-layout.png",
+        mime="image/png",
+        use_container_width=True,
+    )
+else:
+    canvas.save(buf, format="JPEG", quality=quality)
+    buf.seek(0)
+    st.download_button(
+        label="⬇️ ดาวน์โหลดภาพ (JPG)",
+        data=buf,
+        file_name="photo-layout.jpg",
+        mime="image/jpeg",
+        use_container_width=True,
+    )
 
-st.download_button(
-    label="⬇️ ดาวน์โหลดภาพ (JPG)",
-    data=buf,
-    file_name="photo-layout.jpg",
-    mime="image/jpeg",
-    use_container_width=True,
-)
-
-st.caption(f"ขนาด: {W}×{H}px · {n} ภาพ · Layout: {layout}")
+st.caption(f"ขนาด: {W}×{H}px · {n} ภาพ · Layout: {layout} · {out_format}")
