@@ -129,6 +129,10 @@ def draw_layout_preview(layout, g=4, n=6):
 if "order" not in st.session_state:
     st.session_state.order = list(range(6))
 
+# เพิ่ม uploader_key เพื่อเอาไว้รีเซ็ต file_uploader
+if "uploader_key" not in st.session_state:
+    st.session_state.uploader_key = 0
+
 # ------------------- Sidebar -------------------
 with st.sidebar:
     st.header("⚙️ ตั้งค่า")
@@ -160,6 +164,7 @@ uploaded = st.file_uploader(
     "เลือกภาพ (สูงสุด 6 ภาพ)",
     type=["jpg","jpeg","png","webp"],
     accept_multiple_files=True,
+    key=f"uploader_{st.session_state.uploader_key}" # ผูก key ไว้กับ session state
 )
 
 if not uploaded:
@@ -172,7 +177,15 @@ n = len(imgs_raw)
 if len(st.session_state.order) != n:
     st.session_state.order = list(range(n))
 
-st.success(f"โหลดแล้ว {n} ภาพ")
+# วางปุ่มล้างภาพคู่กับข้อความ success เพื่อความสวยงามของ UI
+col1, col2 = st.columns([4, 1])
+with col1:
+    st.success(f"โหลดแล้ว {n} ภาพ")
+with col2:
+    if st.button("🗑️ ล้างภาพ", use_container_width=True):
+        st.session_state.uploader_key += 1       # เปลี่ยน key เพื่อเคลียร์ไฟล์ใน uploader
+        st.session_state.order = list(range(6))  # รีเซ็ตลำดับ
+        st.rerun()
 
 # ------------------- Reorder -------------------
 st.subheader("🔀 เรียงลำดับภาพ")
