@@ -30,15 +30,15 @@ def draw_rounded_rect(draw, x, y, w, h, r, fill, outline=None, outline_w=2):
 # --- แก้ไขฟอนต์ภาษาไทยตรงนี้ ---
 def fit_font(size):
     try:
-        # อ้างอิงไฟล์ฟอนต์ภาษาไทยที่คุณต้องอัปโหลดขึ้น GitHub
-        return ImageFont.truetype("THSarabunNew.ttf", size)
+        # เปลี่ยนเป็นชื่อฟอนต์ที่คุณอัปโหลด (แนะนำตัว Bold สำหรับหัวข้อ)
+        return ImageFont.truetype("Mali-Bold.ttf", size) 
     except:
         return ImageFont.load_default()
 
 def fit_font_reg(size):
     try:
-        # อ้างอิงไฟล์ฟอนต์ภาษาไทยที่คุณต้องอัปโหลดขึ้น GitHub
-        return ImageFont.truetype("THSarabunNew.ttf", size)
+        # เปลี่ยนเป็นชื่อฟอนต์ที่คุณอัปโหลด (แนะนำตัว Regular สำหรับเนื้อหา)
+        return ImageFont.truetype("Mali-Regular.ttf", size) 
     except:
         return ImageFont.load_default()
 # -----------------------------
