@@ -27,17 +27,21 @@ def draw_rounded_rect(draw, x, y, w, h, r, fill, outline=None, outline_w=2):
     draw.rounded_rectangle([x, y, x+w, y+h], radius=r, fill=fill,
                             outline=outline, width=outline_w)
 
+# --- แก้ไขฟอนต์ภาษาไทยตรงนี้ ---
 def fit_font(size):
     try:
-        return ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", size)
+        # อ้างอิงไฟล์ฟอนต์ภาษาไทยที่คุณต้องอัปโหลดขึ้น GitHub
+        return ImageFont.truetype("THSarabunNew.ttf", size)
     except:
         return ImageFont.load_default()
 
 def fit_font_reg(size):
     try:
-        return ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf", size)
+        # อ้างอิงไฟล์ฟอนต์ภาษาไทยที่คุณต้องอัปโหลดขึ้น GitHub
+        return ImageFont.truetype("THSarabunNew.ttf", size)
     except:
         return ImageFont.load_default()
+# -----------------------------
 
 def draw_text_wrapped(draw, text, x, y, max_w, font, color, line_gap=4):
     """Draw wrapped text, return final y."""
@@ -93,6 +97,11 @@ with st.sidebar:
     st.divider()
     st.subheader("🎨 ดีไซน์")
     theme_name  = st.selectbox("ธีมสี", list(THEMES.keys()))
+    
+    # --- เพิ่มช่องอัปโหลดพื้นหลังตรงนี้ ---
+    bg_image_file = st.file_uploader("🖼️ ภาพพื้นหลัง (ถ้าอัปโหลด จะแทนที่สีธีม)", type=["png","jpg","jpeg","webp"])
+    # -----------------------------------
+
     cols_count  = st.selectbox("จำนวนคอลัมน์", [3, 4, 5], index=1)
     out_w       = st.selectbox("ความกว้าง (px)", [2480, 2000, 1600, 1200], index=1,
                                help="2480=A4 300dpi, 2000=โพสต์ออนไลน์")
@@ -159,7 +168,14 @@ if st.button("🖨️ สร้างโบชัวร์", type="primary", use
     grid_h   = ROWS * card_h + (ROWS-1) * GAP
     H        = header_h + PAD + grid_h + PAD + footer_h
 
-    canvas   = Image.new("RGB", (W, H), hex_to_rgb(T["bg"]))
+    # --- แก้ไขการสร้าง Canvas กระดาษพื้นหลัง ---
+    if bg_image_file is not None:
+        bg_raw = Image.open(bg_image_file).convert("RGB")
+        canvas = crop_fit(bg_raw, W, H)
+    else:
+        canvas = Image.new("RGB", (W, H), hex_to_rgb(T["bg"]))
+    # ------------------------------------------
+
     draw     = ImageDraw.Draw(canvas)
 
     # ─── HEADER ────────────────────────────────────────────────────────────
