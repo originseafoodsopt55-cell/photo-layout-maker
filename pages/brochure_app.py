@@ -26,17 +26,43 @@ def draw_rounded_rect(draw, x, y, w, h, r, fill, outline=None, outline_w=2):
     draw.rounded_rectangle([x, y, x+w, y+h], radius=r, fill=fill,
                             outline=outline, width=outline_w)
 
+# ─── Font Library integration ────────────────────────────────────────────────
+import json as _json
+from pathlib import Path as _Path
+
+def _get_font_path(role="heading"):
+    """โหลด path ฟอนต์จาก Font Library session state"""
+    FONT_DIR  = _Path("font_library")
+    META_FILE = FONT_DIR / "meta.json"
+    key = "font_heading_key" if role == "heading" else "font_body_key"
+    fkey = st.session_state.get(key)
+    if fkey:
+        fpath = FONT_DIR / f"{fkey}.ttf"
+        if fpath.exists():
+            return str(fpath)
+    # fallback: ลองหาฟอนต์ในโฟลเดอร์ root
+    for candidate in ["Prompt-Bold.ttf","Mali-Bold.ttf","THSarabunNew.ttf","Prompt-Regular.ttf"]:
+        if _Path(candidate).exists():
+            return candidate
+    return None
+
 def fit_font(size):
+    fpath = _get_font_path("heading")
     try:
-        return ImageFont.truetype("THSarabunNew.ttf", size)
+        if fpath:
+            return ImageFont.truetype(fpath, size)
     except:
-        return ImageFont.load_default()
+        pass
+    return ImageFont.load_default()
 
 def fit_font_reg(size):
+    fpath = _get_font_path("body")
     try:
-        return ImageFont.truetype("THSarabunNew.ttf", size)
+        if fpath:
+            return ImageFont.truetype(fpath, size)
     except:
-        return ImageFont.load_default()
+        pass
+    return ImageFont.load_default()
 
 def draw_text_wrapped(draw, text, x, y, max_w, font, color, line_gap=4):
     words = text.split()
@@ -91,6 +117,38 @@ with st.sidebar:
     st.divider()
     st.subheader("🎨 ดีไซน์")
     theme_name    = st.selectbox("ธีมสี", list(THEMES.keys()))
+
+    # ── Font selector from Font Library ──────────────────────────────────
+    from pathlib import Path as _PL
+    import json as _js
+    _FDIR  = _PL("font_library")
+    _FMETA = _FDIR / "meta.json"
+    _fmeta = {}
+    if _FMETA.exists():
+        with open(_FMETA,"r",encoding="utf-8") as _ff:
+            _fmeta = _js.load(_ff)
+
+    if _fmeta:
+        st.subheader("🔤 ฟอนต์")
+        _flabels = {v["label"]: k for k, v in _fmeta.items()}
+        _names   = list(_flabels.keys())
+
+        _cur_h = st.session_state.get("font_heading_label", _names[0])
+        _cur_b = st.session_state.get("font_body_label",    _names[0])
+        if _cur_h not in _names: _cur_h = _names[0]
+        if _cur_b not in _names: _cur_b = _names[0]
+
+        _sel_h = st.selectbox("ฟอนต์หัวข้อ", _names,
+                              index=_names.index(_cur_h), key="sb_font_h")
+        _sel_b = st.selectbox("ฟอนต์เนื้อหา", _names,
+                              index=_names.index(_cur_b), key="sb_font_b")
+        st.session_state["font_heading_key"]   = _flabels[_sel_h]
+        st.session_state["font_heading_label"] = _sel_h
+        st.session_state["font_body_key"]      = _flabels[_sel_b]
+        st.session_state["font_body_label"]    = _sel_b
+        st.caption(f"หัวข้อ: {_sel_h}  |  เนื้อหา: {_sel_b}")
+    else:
+        st.caption("💡 ไปที่ Font Library เพื่ออัปโหลดฟอนต์ภาษาไทยครับ")
     bg_image_file = st.file_uploader("🖼️ ภาพพื้นหลัง (แทนที่สีธีม)", type=["png","jpg","jpeg","webp"])
     cols_count    = st.selectbox("จำนวนคอลัมน์", [3, 4, 5], index=1)
     out_w         = st.selectbox("ความกว้าง (px)", [2480, 2000, 1600, 1200], index=1,
