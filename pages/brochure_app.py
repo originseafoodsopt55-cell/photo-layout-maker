@@ -100,46 +100,88 @@ with st.sidebar:
 
     st.divider()
     # ── Number Badge Icons ──────────────────────────────────────────────────
-    st.subheader("🔢 ไอคอนตัวเลข")
-    st.caption("อัปโหลด PNG พื้นหลังใส สำหรับหมายเลข 1–20 (ถ้าไม่อัปโหลด จะใช้วงกลมสีแทน)")
+    import json
+    from pathlib import Path
 
-    badge_mode = st.radio("รูปแบบ badge", ["วงกลมสี (default)", "PNG ที่อัปโหลด"], horizontal=True)
+    BADGE_DIR = Path("badge_library")
+    META_FILE = BADGE_DIR / "meta.json"
+
+    def load_badge_meta():
+        if META_FILE.exists():
+            with open(META_FILE, "r", encoding="utf-8") as f:
+                return json.load(f)
+        return {}
+
+    badge_meta = load_badge_meta()
+    col_options = {v["label"]: k for k, v in badge_meta.items()} if badge_meta else {}
+
+    st.subheader("🔢 ไอคอนตัวเลข")
+
+    badge_mode = st.radio("รูปแบบ badge",
+        ["วงกลมสี (default)", "จาก Badge Library", "อัปโหลดใหม่"],
+        horizontal=False)
 
     badge_imgs = {}
-    if badge_mode == "PNG ที่อัปโหลด":
-        st.caption("อัปโหลดทีละไฟล์ — ตั้งชื่อไฟล์เป็น 1.png, 2.png ... หรืออัปโหลดเรียงตามลำดับ")
-        badge_files = st.file_uploader(
-            "เลือกไฟล์ PNG ตัวเลข (หลายไฟล์พร้อมกัน)",
-            type=["png", "webp"],
-            accept_multiple_files=True,
-            key="badge_upload"
-        )
-        if badge_files:
-            # พยายามเรียงตามชื่อไฟล์ก่อน เช่น 1.png, 2.png
-            def extract_num(f):
-                try:
-                    return int(f.name.split(".")[0])
-                except:
-                    return 999
 
-            badge_files_sorted = sorted(badge_files, key=extract_num)
-            for i, bf in enumerate(badge_files_sorted):
+    if badge_mode == "จาก Badge Library":
+        if not col_options:
+            st.warning("ยังไม่มี Badge ในคลัง — ไปที่หน้า Badge Library เพื่ออัปโหลดก่อนครับ")
+        else:
+            # ใช้ collection ที่เลือกไว้ หรือให้เลือกใหม่
+            current_label = st.session_state.get("selected_badge_label", list(col_options.keys())[0])
+            if current_label not in col_options:
+                current_label = list(col_options.keys())[0]
+
+            chosen_label = st.selectbox("เลือก Collection", list(col_options.keys()),
+                                        index=list(col_options.keys()).index(current_label))
+            col_key = col_options[chosen_label]
+            files_map = badge_meta[col_key].get("files", {})
+
+            # preview
+            prev_nums = sorted(files_map.keys(), key=lambda x: int(x) if x.isdigit() else 999)[:6]
+            pcols = st.columns(len(prev_nums))
+            for j, num in enumerate(prev_nums):
+                fpath = BADGE_DIR / col_key / files_map[num]
+                if fpath.exists():
+                    with pcols[j]:
+                        img = Image.open(fpath).convert("RGBA")
+                        bg  = Image.new("RGBA", img.size, (180,180,180,255))
+                        bg.paste(img, mask=img)
+                        st.image(bg.convert("RGB"), caption=f"#{num}", width=52)
+
+            st.caption(f"✅ {chosen_label} — {len(files_map)} badge")
+
+            # โหลดเข้า badge_imgs
+            for num_str, fname in files_map.items():
+                fpath = BADGE_DIR / col_key / fname
+                if fpath.exists():
+                    try:
+                        badge_imgs[int(num_str)] = Image.open(fpath).convert("RGBA")
+                    except:
+                        pass
+
+    elif badge_mode == "อัปโหลดใหม่":
+        st.caption("ตั้งชื่อไฟล์เป็น 1.png, 2.png ... หรืออัปโหลดเรียงตามลำดับ")
+        badge_files = st.file_uploader(
+            "เลือกไฟล์ PNG ตัวเลข",
+            type=["png","webp"], accept_multiple_files=True, key="badge_upload")
+        if badge_files:
+            def extract_num(f):
+                try: return int(f.name.split(".")[0])
+                except: return 999
+            for i, bf in enumerate(sorted(badge_files, key=extract_num)):
                 try:
                     num = extract_num(bf)
-                    if num == 999:
-                        num = i + 1
+                    if num == 999: num = i + 1
                     badge_imgs[num] = Image.open(bf).convert("RGBA")
-                except:
-                    pass
-
-            st.success(f"โหลด badge {len(badge_imgs)} ไฟล์: {sorted(badge_imgs.keys())}")
-
-            # แสดง preview badge
+                except: pass
             if badge_imgs:
-                preview_cols = st.columns(min(len(badge_imgs), 5))
+                pcols2 = st.columns(min(len(badge_imgs), 5))
                 for j, (num, bimg) in enumerate(sorted(badge_imgs.items())[:5]):
-                    with preview_cols[j]:
-                        st.image(bimg, caption=str(num), width=48)
+                    with pcols2[j]:
+                        bg = Image.new("RGBA", bimg.size, (180,180,180,255))
+                        bg.paste(bimg, mask=bimg)
+                        st.image(bg.convert("RGB"), caption=f"#{num}", width=52)
 
 # ─── Product Entry ───────────────────────────────────────────────────────────
 
