@@ -49,18 +49,11 @@ def draw_text_wrapped(draw, text, x, y, max_w, font, color, line_gap=4):
     return y
 
 # ─── Font resolver ───────────────────────────────────────────────────────────
-# ลำดับการหาฟอนต์:
-# 1. Font Library (font_library/meta.json → font_library/xxx.ttf)
-# 2. fonts/ folder ใน repo
-# 3. root folder
-# 4. default font
 
 FONT_LIB_DIR = Path("font_library")
 FONTS_DIR    = Path("fonts")
 
 def _find_font_file(role="heading"):
-    """หา path ฟอนต์จากหลาย source ตามลำดับ"""
-    # 1. Font Library session state
     key  = "font_heading_key" if role == "heading" else "font_body_key"
     fkey = st.session_state.get(key)
     if fkey:
@@ -68,7 +61,6 @@ def _find_font_file(role="heading"):
         if fpath.exists():
             return str(fpath)
 
-    # 2. fonts/ folder — เลือกตาม role
     if FONTS_DIR.exists():
         if role == "heading":
             candidates = ["Prompt-Bold.ttf", "Mali-Bold.ttf",
@@ -80,12 +72,10 @@ def _find_font_file(role="heading"):
             fp = FONTS_DIR / c
             if fp.exists():
                 return str(fp)
-        # ถ้าไม่เจอที่ระบุ ใช้ไฟล์แรกที่เจอใน fonts/
         ttfs = list(FONTS_DIR.glob("*.ttf"))
         if ttfs:
             return str(ttfs[0])
 
-    # 3. root folder
     for c in ["Prompt-Bold.ttf","Mali-Bold.ttf","Prompt-Regular.ttf","Mali-Regular.ttf"]:
         if Path(c).exists():
             return c
@@ -144,21 +134,18 @@ with st.sidebar:
     st.subheader("🎨 ดีไซน์")
     theme_name = st.selectbox("ธีมสี", list(THEMES.keys()))
 
-    # ── Font selector ────────────────────────────────────────────────────────
     _fmeta = {}
     _fmeta_file = FONT_LIB_DIR / "meta.json"
     if _fmeta_file.exists():
         with open(_fmeta_file, "r", encoding="utf-8") as _ff:
             _fmeta = json.load(_ff)
 
-    # ตรวจสอบฟอนต์ที่มีอยู่
     _available_fonts = {}
     if _fmeta:
         for k, v in _fmeta.items():
             fp = FONT_LIB_DIR / f"{k}.ttf"
             if fp.exists():
                 _available_fonts[v["label"]] = k
-    # ดึงจาก fonts/ folder ด้วย
     if FONTS_DIR.exists():
         for fp in sorted(FONTS_DIR.glob("*.ttf")):
             label = fp.stem
@@ -180,7 +167,7 @@ with st.sidebar:
         def _resolve_key(label):
             raw = _available_fonts[label]
             if raw.startswith("__fonts__/"):
-                return None  # ใช้ path จาก fonts/ โดยตรง
+                return None
             return raw
 
         st.session_state["font_heading_key"]   = _resolve_key(_sel_h)
@@ -193,7 +180,6 @@ with st.sidebar:
     else:
         st.caption("💡 ไม่พบฟอนต์ — ตรวจสอบโฟลเดอร์ fonts/ ใน repo")
 
-    # แสดงฟอนต์ที่ใช้จริง
     _hpath = _find_font_file("heading")
     _bpath = _find_font_file("body")
     if _hpath:
@@ -209,7 +195,6 @@ with st.sidebar:
     out_format    = st.radio("รูปแบบ", ["JPG", "PNG"], horizontal=True)
 
     st.divider()
-    # ── Badge Icons ──────────────────────────────────────────────────────────
     BADGE_DIR      = Path("badge_library")
     BADGE_META_FILE = BADGE_DIR / "meta.json"
 
@@ -286,6 +271,29 @@ with st.sidebar:
 st.subheader("📦 รายการสินค้า")
 st.caption("กรอกข้อมูลสินค้าและอัปโหลดภาพ")
 
+PRODUCT_LIB_DIR = Path("product_library")
+META_FILE = PRODUCT_LIB_DIR / "meta.json"
+
+def load_saved_products():
+    if META_FILE.exists():
+        try:
+            with open(META_FILE, "r", encoding="utf-8") as f:
+                return json.load(f)
+        except:
+            pass
+    return {}
+
+saved_products = load_saved_products()
+saved_options = ["กรอกข้อมูลเอง"]
+saved_options_map = {}
+if saved_products:
+    for pid, pdata in saved_products.items():
+        label = pdata["name"]
+        if pdata.get("weight"):
+            label += f" ({pdata['weight']})"
+        saved_options.append(label)
+        saved_options_map[label] = pid
+
 if "num_products" not in st.session_state:
     st.session_state.num_products = 4
 
@@ -300,20 +308,74 @@ with c2:
 n = st.session_state.num_products
 products = []
 
-for i in range(n):
-    with st.expander(f"สินค้าที่ {i+1}", expanded=(i < 3)):
-        col1, col2, col3 = st.columns([2, 1.5, 2])
-        with col1:
-            name   = st.text_input("ชื่อสินค้า",    key=f"name_{i}",   placeholder="เช่น หอยแมลงภู่แช่แข็ง")
-            weight = st.text_input("น้ำหนัก/ขนาด",  key=f"weight_{i}", placeholder="เช่น 500g / 1kg")
-        with col2:
-            price  = st.text_input("ราคา (ไม่บังคับ)", key=f"price_{i}", placeholder="฿99")
-        with col3:
-            desc   = st.text_input("คำอธิบายสั้น",  key=f"desc_{i}",   placeholder="เช่น แพ็คสะอาด พร้อมปรุง")
-        img_f = st.file_uploader("ภาพสินค้า", type=["jpg","jpeg","png","webp"],
-                                  key=f"img_{i}", label_visibility="collapsed")
-        products.append({"name": name, "weight": weight, "price": price,
-                          "desc": desc, "img_file": img_f})
+cols_per_row = 3
+for row_idx in range(math.ceil(n / cols_per_row)):
+    grid_cols = st.columns(cols_per_row)
+    for col_idx in range(cols_per_row):
+        i = row_idx * cols_per_row + col_idx
+        if i >= n:
+            break
+            
+        with grid_cols[col_idx]:
+            with st.container(border=True):
+                st.markdown(f"### **📦 รายการที่ {i+1}**")
+                
+                selected_label = st.selectbox(
+                    "ดึงข้อมูลจากคลัง",
+                    saved_options,
+                    key=f"lib_select_{i}",
+                    label_visibility="collapsed"
+                )
+                
+                last_selected_key = f"last_lib_select_{i}"
+                lib_img_path = ""
+                
+                if selected_label != "กรอกข้อมูลเอง":
+                    pid = saved_options_map[selected_label]
+                    pdata = saved_products[pid]
+                    lib_img_path = pdata.get("image_path", "")
+                    
+                    if st.session_state.get(last_selected_key) != selected_label:
+                        st.session_state[f"name_{i}"] = pdata.get("name", "")
+                        st.session_state[f"weight_{i}"] = pdata.get("weight", "")
+                        st.session_state[f"price_{i}"] = pdata.get("price", "")
+                        st.session_state[f"desc_{i}"] = pdata.get("desc", "")
+                        st.session_state[last_selected_key] = selected_label
+                else:
+                    if st.session_state.get(last_selected_key) != selected_label:
+                        st.session_state[f"name_{i}"] = ""
+                        st.session_state[f"weight_{i}"] = ""
+                        st.session_state[f"price_{i}"] = ""
+                        st.session_state[f"desc_{i}"] = ""
+                        st.session_state[last_selected_key] = selected_label
+
+                name = st.text_input("ชื่อสินค้า", key=f"name_{i}", placeholder="ชื่อสินค้าซีฟู้ด")
+                
+                c_w, c_p = st.columns(2)
+                with c_w:
+                    weight = st.text_input("ขนาด/น้ำหนัก", key=f"weight_{i}", placeholder="เช่น 500g")
+                with c_p:
+                    price = st.text_input("ราคา", key=f"price_{i}", placeholder="เช่น ฿99")
+                    
+                desc = st.text_input("คำอธิบายย่อ", key=f"desc_{i}", placeholder="รายละเอียดสั้นๆ")
+                
+                if lib_img_path and Path(lib_img_path).exists():
+                    st.caption("📷 ใช้รูปจากคลังสินค้าแล้ว")
+                    st.image(lib_img_path, width=70)
+                    img_f = st.file_uploader("เปลี่ยนรูปเฉพาะใบนี้ (ถ้ามี)", type=["jpg","jpeg","png","webp"],
+                                              key=f"img_{i}", label_visibility="collapsed")
+                else:
+                    img_f = st.file_uploader("อัปโหลดรูปภาพสินค้า", type=["jpg","jpeg","png","webp"],
+                                              key=f"img_{i}", label_visibility="collapsed")
+
+                products.append({
+                    "name": name,
+                    "weight": weight,
+                    "price": price,
+                    "desc": desc,
+                    "img_file": img_f,
+                    "lib_img_path": lib_img_path
+                })
 
 # ─── Generate ────────────────────────────────────────────────────────────────
 
@@ -396,12 +458,23 @@ if st.button("🖨️ สร้างโบชัวร์", type="primary", use
         cy  = header_h + PAD + row*(card_h+GAP)
 
         draw_rounded_rect(draw, cx, cy, card_w, card_h, 12,
-                          fill=hex_to_rgb(T["card"]),
-                          outline=hex_to_rgb(T["border"]), outline_w=3)
+                           fill=hex_to_rgb(T["card"]),
+                           outline=hex_to_rgb(T["border"]), outline_w=3)
 
+        pimg = None
         if prod["img_file"]:
             try:
                 pimg  = Image.open(prod["img_file"]).convert("RGB")
+            except:
+                pass
+        elif prod.get("lib_img_path") and Path(prod["lib_img_path"]).exists():
+            try:
+                pimg  = Image.open(prod["lib_img_path"]).convert("RGB")
+            except:
+                pass
+
+        if pimg:
+            try:
                 pimg  = crop_fit(pimg, card_w-4, img_h-4)
                 mask  = Image.new("L", (card_w-4, img_h-4), 0)
                 mdraw = ImageDraw.Draw(mask)
@@ -415,7 +488,6 @@ if st.button("🖨️ สร้างโบชัวร์", type="primary", use
             nw = nb[2]-nb[0]
             draw.text((cx+(card_w-nw)//2, cy+img_h//2-10),"ไม่มีภาพ",font=fn_weight,fill=hex_to_rgb(T["subtext"]))
 
-        # Badge
         badge_num = idx+1
         bx, by = cx+8, cy+8
         if badge_num in scaled_badges:
